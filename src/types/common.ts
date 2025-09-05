@@ -28,6 +28,9 @@ export interface ClaimBundle {
   readonly totalUsd: number;
   readonly estGasUsd: number;
   readonly netUsd: number;
+  readonly contractAddress?: string;  // Target contract address for execution
+  readonly callData?: string;         // Encoded function call data
+  readonly value?: number;           // ETH/AVAX value to send (usually 0 for claims)
 }
 
 export interface TxResult {
