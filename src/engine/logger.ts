@@ -100,6 +100,20 @@ export class Logger {
     }
   }
 
+  // Enhanced profit summary logging for verified payouts
+  verifiedPayoutSummary(
+    protocol: string,
+    claimedUsd: number,
+    gasUsd: number,
+    netUsd: number,
+    txHash: string,
+    verified: boolean
+  ): void {
+    const status = verified ? '✅' : '❌';
+    const verifiedText = verified ? 'verified=yes' : 'verified=no';
+    this.info(`${status} ${protocol} claim: gross $${claimedUsd.toFixed(2)} | gas $${gasUsd.toFixed(2)} | net $${netUsd.toFixed(2)} | tx ${txHash} | ${verifiedText}`);
+  }
+
   discoveryRun(protocol: string, walletCount: number, rewardCount: number): void {
     this.info(`Discovery completed: ${protocol} found ${rewardCount} rewards across ${walletCount} wallets`);
   }

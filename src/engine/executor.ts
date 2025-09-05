@@ -88,6 +88,14 @@ export async function execute(
     
     // Validate recipient before execution
     await validateRecipient(bundle, client, mockMode);
+    
+    // Validate contract destination for sJOE bundles
+    if (bundle.protocol === 'traderjoe' && !mockMode) {
+      const { env } = await import('../config/env.js');
+      if (env.traderJoeSJoeStakingAddress) {
+        await validateContractDestination(env.traderJoeSJoeStakingAddress, client, mockMode);
+      }
+    }
 
     logger.info(`Executing bundle ${bundle.id} with ${bundle.items.length} items worth $${bundle.totalUsd.toFixed(2)}`);
     
@@ -101,6 +109,23 @@ export async function execute(
     
     if (verifiedResult.success) {
       logger.bundleExecuted(bundle.id, true, verifiedResult.txHash);
+      
+      // Enhanced profit summary for sJOE claims
+      if (bundle.protocol === 'traderjoe' && verifiedResult.txHash) {
+        const claimedUsd = verifiedResult.claimedUsd || bundle.totalUsd;
+        const gasUsd = verifiedResult.gasUsd || bundle.estGasUsd;
+        const netUsd = claimedUsd - gasUsd;
+        const verified = verifiedResult.verifiedPayout === true;
+        
+        logger.verifiedPayoutSummary(
+          'sJOE',
+          claimedUsd,
+          gasUsd,
+          netUsd,
+          verifiedResult.txHash,
+          verified
+        );
+      }
     } else {
       logger.bundleExecuted(bundle.id, false, undefined, verifiedResult.error);
     }
@@ -198,22 +223,73 @@ async function performPayoutVerification(
 }
 
 /**
- * Get transaction receipt (placeholder - would be implemented per chain)
+ * Get transaction receipt for different chains
  */
 async function getTransactionReceipt(txHash: string, chain: string): Promise<any> {
-  // This is a placeholder implementation
-  // Real implementation would use chain-specific RPC calls
-  logger.warn(`Transaction receipt retrieval not implemented for chain ${chain}, txHash ${txHash}`);
-  return null;
+  try {
+    if (chain === 'avalanche') {
+      // Use ethers to get transaction receipt
+      const { ethers } = await import('ethers');
+      const { env } = await import('../config/env.js');
+      
+      const provider = new ethers.JsonRpcProvider(env.avalancheRpcUrl);
+      const receipt = await provider.getTransactionReceipt(txHash);
+      
+      if (!receipt) {
+        logger.warn(`Transaction receipt not found for ${txHash} on ${chain}`);
+        return null;
+      }
+      
+      return {
+        status: receipt.status,
+        logs: receipt.logs.map(log => ({
+          address: log.address,
+          topics: log.topics,
+          data: log.data,
+          blockNumber: log.blockNumber,
+          transactionHash: log.transactionHash,
+          logIndex: log.index
+        }))
+      };
+    } else {
+      logger.warn(`Transaction receipt retrieval not implemented for chain ${chain}`);
+      return null;
+    }
+  } catch (error) {
+    logger.error(`Failed to get transaction receipt for ${txHash} on ${chain}:`, error);
+    return null;
+  }
 }
 
 /**
- * Calculate gas cost in USD (placeholder)
+ * Calculate gas cost in USD
  */
 async function calculateGasUsd(gasUsed: string, chain: string, pricing: PricingService): Promise<number> {
-  // This is a placeholder implementation
-  // Real implementation would get gas price and native token price
-  return 0;
+  try {
+    if (chain === 'avalanche') {
+      // Get current AVAX price
+      const { AvalancheClient } = await import('../chains/avalanche.js');
+      const { env } = await import('../config/env.js');
+      
+      // Create a temporary client to get current gas price and native USD price
+      const client = new AvalancheClient(env.avalancheRpcUrl);
+      const gasPrice = await client.gasPrice();
+      const avaxUsd = await client.nativeUsd();
+      
+      // Calculate gas cost
+      const gasCostWei = BigInt(gasUsed) * gasPrice;
+      const gasCostAvax = Number(gasCostWei) / 1e18;
+      const gasCostUsd = gasCostAvax * avaxUsd;
+      
+      return gasCostUsd;
+    } else {
+      logger.warn(`Gas USD calculation not implemented for chain ${chain}`);
+      return 0;
+    }
+  } catch (error) {
+    logger.error(`Failed to calculate gas USD for ${gasUsed} on ${chain}:`, error);
+    return 0;
+  }
 }
 
 export async function executeSequential(

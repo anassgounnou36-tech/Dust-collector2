@@ -1,7 +1,32 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { execute, injectPricingService } from '../../src/engine/executor.js';
 import { isPlaceholderAddress } from '../../src/config/addresses.js';
 import type { ClaimBundle, ChainClient, TxResult, Address } from '../../src/types/common.js';
+
+// Mock the address validation functions
+vi.mock('../../src/config/addresses.js', async () => {
+  const actual = await vi.importActual('../../src/config/addresses.js') as any;
+  return {
+    ...actual,
+    looksLikeSeedOrTestAddress: vi.fn((address: Address) => {
+      // Only consider 0x1234... as seed addresses for tests
+      return address.value.toLowerCase().startsWith('0x1234');
+    }),
+    isAllowedRecipientNonMock: vi.fn((address: Address) => {
+      // Allow the new valid address for tests
+      return address.value === '0xe816F3dB12Db343FAF01B0781F9fE80122FA7E7D';
+    }),
+    getDefaultClaimRecipient: vi.fn((chain: string) => {
+      if (chain === 'avalanche') {
+        return {
+          value: '0xe816F3dB12Db343FAF01B0781F9fE80122FA7E7D',
+          chain: 'avalanche'
+        };
+      }
+      return null;
+    })
+  };
+});
 
 describe('Recipient Guard Tests', () => {
   let mockClient: ChainClient;
@@ -16,6 +41,7 @@ describe('Recipient Guard Tests', () => {
       gasPrice: async () => BigInt(25000000000),
       nativeUsd: async () => 40.0,
       simulate: async () => ({ ok: true }),
+      getCode: async (address: string) => '0x608060405234801561001057600080fd5b50', // Mock contract bytecode
       sendRaw: async (bundle) => ({
         success: true,
         txHash: '0x123abc',
@@ -33,7 +59,7 @@ describe('Recipient Guard Tests', () => {
     };
 
     validAddress = {
-      value: '0x1234567890123456789012345678901234567890',
+      value: '0xe816F3dB12Db343FAF01B0781F9fE80122FA7E7D',
       chain: 'avalanche'
     };
 
@@ -159,7 +185,11 @@ describe('Recipient Guard Tests', () => {
       // Don't inject pricing service
       const validBundle: ClaimBundle = {
         ...mockBundle,
-        claimTo: validAddress
+        claimTo: validAddress,
+        items: mockBundle.items.map(item => ({
+          ...item,
+          claimTo: validAddress
+        }))
       };
       
       const result = await execute(validBundle, clients, false);
@@ -191,7 +221,11 @@ describe('Recipient Guard Tests', () => {
       const clients = new Map([['avalanche', errorClient]]);
       const validBundle: ClaimBundle = {
         ...mockBundle,
-        claimTo: validAddress
+        claimTo: validAddress,
+        items: mockBundle.items.map(item => ({
+          ...item,
+          claimTo: validAddress
+        }))
       };
       
       const result = await execute(validBundle, clients, false);
