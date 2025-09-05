@@ -16,6 +16,7 @@ export interface PendingReward {
   readonly lastClaimAt?: Date;
   readonly discoveredAt: Date;
   readonly estGasLimit?: number;
+  readonly isSynthetic?: boolean;
 }
 
 export interface ClaimBundle {
@@ -38,6 +39,7 @@ export interface TxResult {
   readonly claimedUsd: number;
   readonly chain: Chain;
   readonly status?: string;
+  readonly verifiedPayout?: boolean;
 }
 
 export interface Integration {

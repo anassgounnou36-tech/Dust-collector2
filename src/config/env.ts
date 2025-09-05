@@ -19,6 +19,10 @@ export const env = {
   avalanchePrivateKey: process.env.PRIVATE_KEY_AVAX,
   tronPrivateKey: process.env.PRIVATE_KEY_TRON,
 
+  // Default claim recipients (required when mockMode=false)
+  defaultClaimRecipientAvax: process.env.DEFAULT_CLAIM_RECIPIENT_AVAX,
+  defaultClaimRecipientTron: process.env.DEFAULT_CLAIM_RECIPIENT_TRON,
+
   // Feature flags
   enableSyntheticGmx: process.env.ENABLE_SYNTHETIC_GMX === 'true',
   devLowerThresholds: process.env.DEV_LOWER_THRESHOLDS === 'true',
