@@ -144,15 +144,15 @@ export const traderJoeIntegration: Integration = {
   key: 'traderjoe',
   chain: 'avalanche',
 
-  async discoverWallets(): Promise<Address[]> {
+  async discoverWallets(mockMode: boolean = false): Promise<Address[]> {
     return await discoverTraderJoeWallets();
   },
 
-  async getPendingRewards(wallets: Address[]): Promise<PendingReward[]> {
+  async getPendingRewards(wallets: Address[], mockMode: boolean = false): Promise<PendingReward[]> {
     return await scanTraderJoeRewards(wallets);
   },
 
-  async buildBundle(rewards: PendingReward[]): Promise<ClaimBundle[]> {
+  async buildBundle(rewards: PendingReward[], mockMode: boolean = false): Promise<ClaimBundle[]> {
     return await buildTraderJoeBundles(rewards);
   }
 };

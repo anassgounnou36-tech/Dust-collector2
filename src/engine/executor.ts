@@ -1,6 +1,6 @@
 import type { ClaimBundle, ChainClient, TxResult, Address } from '../types/common.js';
 import { logger } from './logger.js';
-import { isPlaceholderAddress } from '../config/addresses.js';
+import { isPlaceholderAddress, looksLikeSeedOrTestAddress, isAllowedRecipientNonMock } from '../config/addresses.js';
 import { verifyPayout, type PricingService } from './verifyPayout.js';
 
 // Global pricing service instance for injection
@@ -15,15 +15,54 @@ export function injectPricingService(service: PricingService): void {
 }
 
 /**
- * Validate bundle recipient is not a placeholder in non-mock mode
+ * Enhanced recipient validation with strict checks for non-mock mode
  */
-function validateRecipient(bundle: ClaimBundle, mockMode: boolean): void {
+async function validateRecipient(bundle: ClaimBundle, client: ChainClient | undefined, mockMode: boolean): Promise<void> {
   if (mockMode) {
     return; // No validation in mock mode
   }
   
+  // Check for placeholder addresses
   if (isPlaceholderAddress(bundle.claimTo)) {
     throw new Error(`Cannot execute bundle with placeholder recipient ${bundle.claimTo.value} in non-mock mode`);
+  }
+  
+  // Check for seed/test address patterns
+  if (looksLikeSeedOrTestAddress(bundle.claimTo)) {
+    throw new Error(`Cannot execute bundle with seed/test recipient ${bundle.claimTo.value} in non-mock mode`);
+  }
+  
+  // Check allowlist for non-mock mode
+  if (!isAllowedRecipientNonMock(bundle.claimTo)) {
+    throw new Error(`Recipient ${bundle.claimTo.value} not allowed in non-mock mode`);
+  }
+}
+
+/**
+ * Validate contract destination has bytecode (not EOA) for non-mock mode
+ */
+async function validateContractDestination(
+  contractAddress: string, 
+  client: ChainClient | undefined, 
+  mockMode: boolean
+): Promise<void> {
+  if (mockMode || !client || !client.getCode) {
+    return; // Skip validation in mock mode, if no client, or if getCode not available
+  }
+  
+  try {
+    // Get contract bytecode
+    const code = await client.getCode(contractAddress);
+    
+    if (!code || code === '0x' || code === '0x0') {
+      throw new Error(`EOA_DESTINATION_BLOCKED: ${contractAddress} has no bytecode`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('EOA_DESTINATION_BLOCKED')) {
+      throw error; // Re-throw our specific error
+    }
+    // For other errors (like network issues), log warning but don't fail
+    logger.warn(`Could not verify contract bytecode for ${contractAddress}:`, error);
   }
 }
 
@@ -33,9 +72,6 @@ export async function execute(
   mockMode: boolean = false
 ): Promise<TxResult> {
   try {
-    // Validate recipient before execution
-    validateRecipient(bundle, mockMode);
-    
     const client = clients.get(bundle.chain);
     
     if (!client) {
@@ -49,6 +85,9 @@ export async function execute(
         verifiedPayout: false
       };
     }
+    
+    // Validate recipient before execution
+    await validateRecipient(bundle, client, mockMode);
 
     logger.info(`Executing bundle ${bundle.id} with ${bundle.items.length} items worth $${bundle.totalUsd.toFixed(2)}`);
     

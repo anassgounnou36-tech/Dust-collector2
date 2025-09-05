@@ -11,6 +11,7 @@ import { justlendIntegration } from '../integrations/justlend.js';
 import { sunswapIntegration } from '../integrations/sunswap.js';
 import { gmxIntegration } from '../integrations/gmx.js';
 import { traderJoeIntegration } from '../integrations/traderjoe.js';
+import { sJoeIntegration } from '../integrations/traderjoe/sjoe.js';
 import { benqiIntegration } from '../integrations/benqi.js';
 import { yieldYakIntegration } from '../integrations/yieldyak.js';
 import { seedWallets } from '../discovery/seeds.js';
@@ -134,7 +135,7 @@ function getActiveIntegrations(configObj: Config): Integration[] {
   }
 
   if (configObj.chains.avalanche.privateKey || configObj.mockMode) {
-    integrations.push(gmxIntegration, traderJoeIntegration, benqiIntegration, yieldYakIntegration);
+    integrations.push(gmxIntegration, traderJoeIntegration, sJoeIntegration, benqiIntegration, yieldYakIntegration);
   } else {
     logger.warn('No Avalanche integrations activated');
   }
@@ -155,15 +156,19 @@ async function runDiscoveryAndClaims(
   logger.info('Starting discovery and claims cycle...');
 
   try {
-    // Seed wallets
-    const seeds = await seedWallets();
-    logger.info(`Found ${seeds.length} seed wallets`);
-    for (const wallet of seeds) {
-      try {
-        upsertWallet(db, wallet);
-      } catch (e) {
-        logger.warn('Failed to upsert seed wallet', wallet, e);
+    // Seed wallets (only in mock mode)
+    if (configObj.mockMode) {
+      const seeds = await seedWallets();
+      logger.info(`Found ${seeds.length} seed wallets (mock mode)`);
+      for (const wallet of seeds) {
+        try {
+          upsertWallet(db, wallet);
+        } catch (e) {
+          logger.warn('Failed to upsert seed wallet', wallet, e);
+        }
       }
+    } else {
+      logger.info('Skipping seed wallet discovery in production mode');
     }
 
     // Integrations discovery
@@ -172,7 +177,7 @@ async function runDiscoveryAndClaims(
       try {
         logger.info(`Running integration: ${integration.key}`);
 
-        const wallets = await integration.discoverWallets();
+        const wallets = await integration.discoverWallets(configObj.mockMode);
         logger.discoveryRun(integration.key, wallets.length, 0);
 
         if (wallets.length === 0) continue;
@@ -183,7 +188,7 @@ async function runDiscoveryAndClaims(
             logger.info(`Filtered out ${wallets.length - activeWallets.length} quarantined wallets`);
         }
 
-        const pendingRewards = await integration.getPendingRewards(activeWallets);
+        const pendingRewards = await integration.getPendingRewards(activeWallets, configObj.mockMode);
         logger.discoveryRun(integration.key, activeWallets.length, pendingRewards.length);
 
         for (const reward of pendingRewards) {
@@ -310,6 +315,30 @@ async function main(): Promise<void> {
   } catch (error) {
     logger.fatal('❌ Claim recipient validation failed:', error);
     process.exit(1);
+  }
+
+  // Validate sJOE integration configuration for non-mock mode
+  if (!configObj.mockMode) {
+    try {
+      const { env } = await import('../config/env.js');
+      
+      if (!env.traderJoeSJoeStakingAddress) {
+        throw new Error('TRADERJOE_SJOE_STAKING_ADDRESS is required for non-mock mode');
+      }
+      
+      if (!env.sJoeToken) {
+        throw new Error('SJOE_TOKEN_ADDRESS is required for non-mock mode');
+      }
+      
+      if (!env.joeToken) {
+        throw new Error('JOE_TOKEN_ADDRESS is required for non-mock mode');
+      }
+      
+      logger.info('✅ sJOE integration configuration validated for production mode');
+    } catch (error) {
+      logger.fatal('❌ sJOE integration configuration validation failed:', error);
+      process.exit(1);
+    }
   }
 
   // Inject pricing service for payout verification

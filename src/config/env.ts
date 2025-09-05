@@ -31,11 +31,19 @@ export const env = {
   traderJoeRouter: process.env.TRADERJOE_ROUTER_ADDRESS || '0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30',
   traderJoeFactory: process.env.TRADERJOE_FACTORY_ADDRESS || '0x8e42f2F4101563bF679975178e880FD87d3eFd4e',
   traderJoeQuoter: process.env.TRADERJOE_QUOTER_ADDRESS || '0x4c45bbec2ff7810ef4a77ad79ed7d9b699419b5c',
+  
+  // Trader Joe sJOE staking
+  traderJoeSJoeStakingAddress: process.env.TRADERJOE_SJOE_STAKING_ADDRESS,
+  traderJoeSJoeStakingAbiPath: process.env.TRADERJOE_SJOE_STAKING_ABI_PATH || './abi/traderjoe_sjoe_staking.json',
 
   // Token addresses
-  joeToken: process.env.JOE_TOKEN || '0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd',
+  joeToken: process.env.JOE_TOKEN_ADDRESS || '0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd',
+  sJoeToken: process.env.SJOE_TOKEN_ADDRESS || '0x1a731B2299E22FbAC282E7094EdA41046343Cb51',
   usdcToken: process.env.USDC_TOKEN || '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
   wavaxToken: process.env.WAVAX_TOKEN || '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
+  
+  // sJOE specific configuration
+  sJoeMinUsd: parseFloat(process.env.SJOE_MIN_USD || '1.0'),
 
   // Pricing API configuration
   coinGeckoApiKey: process.env.COINGECKO_API_KEY,
