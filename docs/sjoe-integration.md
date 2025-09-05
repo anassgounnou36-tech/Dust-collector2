@@ -45,6 +45,7 @@ JOE_TOKEN_ADDRESS=0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd
 # Configuration
 SJOE_MIN_USD=1.0
 TRADERJOE_SJOE_STAKING_ABI_PATH=./abi/traderjoe_sjoe_staking.json
+SJOE_HARVEST_FUNCTION=harvest  # or 'getReward'
 
 # Chain configuration
 AVALANCHE_RPC_URL=https://api.avax.network/ext/bc/C/rpc
@@ -122,8 +123,24 @@ npx tsx demo/sjoe-demo.ts
 ### Execution
 - Single claim transaction to `TRADERJOE_SJOE_STAKING_ADDRESS`
 - Encodes configurable claim function (harvest/getReward)
+- Configurable via `SJOE_HARVEST_FUNCTION` environment variable
+- Supports both `harvest()` and `getReward()` function calls
 - Enforces recipient validation before execution
 - Validates contract bytecode exists
+- Generates proper transaction calldata with function selectors
+
+#### Harvest Function Configuration
+```bash
+# Use harvest() function (default)
+export SJOE_HARVEST_FUNCTION=harvest
+
+# Use getReward() function
+export SJOE_HARVEST_FUNCTION=getReward
+```
+
+**Function Selectors:**
+- `harvest()`: `0x4641257d`
+- `getReward()`: `0x3d18b912`
 
 ### Verification
 - Parses transaction receipt logs for ERC20 Transfer events
@@ -140,6 +157,10 @@ npx tsx demo/sjoe-demo.ts
 - ✅ Execution success/failure scenarios
 - ✅ Address validation patterns
 - ✅ Migration schema tests
+- ✅ Harvest function encoding (harvest vs getReward)
+- ✅ Transaction data generation and calldata
+- ✅ Function selector validation
+- ✅ Runtime configuration changes
 
 ### Run Tests
 ```bash
@@ -150,6 +171,7 @@ npm test
 npm test tests/integrations/traderjoe/sjoe.test.ts
 npm test tests/config/enhanced-addresses.test.ts
 npm test tests/executor/recipientGuard.test.ts
+npm test tests/sjoe-harvest.test.ts  # New harvest logic tests
 ```
 
 ## Profit Summary Format
