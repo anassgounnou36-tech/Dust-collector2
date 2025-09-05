@@ -71,14 +71,19 @@ export class AvalancheClient implements ChainClient {
 
   async simulate(bundle: ClaimBundle): Promise<SimulationResult> {
     try {
-      // TODO: Implement actual protocol-specific simulation logic
-      // For now, simulate a generic contract call
-      const to = bundle.claimTo.value;
-      const data = '0x'; // Placeholder data
-      const value = 0;
+      // Use bundle data if available, otherwise fall back to placeholder
+      const to = bundle.contractAddress || bundle.claimTo.value;
+      const data = bundle.callData || '0x';
+      const value = bundle.value || 0;
 
       try {
         const result = await this.provider.call({ to, data, value });
+        
+        // Log simulation success for sJOE protocol
+        if (bundle.protocol === 'traderjoe' && bundle.callData) {
+          console.log(`TraderJoe sJOE: Simulation successful for ${data.slice(0, 10)}... -> ${result}`);
+        }
+        
         return { ok: true, reason: `Simulation successful: ${result}` };
       } catch (error: any) {
         // Try to extract revert reason from error
@@ -150,15 +155,20 @@ export class AvalancheClient implements ChainClient {
         gasLimit = BigInt(totalEstGas);
       }
 
-      // TODO: Implement actual protocol-specific transaction building
+      // Build transaction using bundle data if available
       const tx = {
-        to: bundle.claimTo.value,
-        data: '0x', // Placeholder - would need real protocol-specific call data
-        value: 0,
+        to: bundle.contractAddress || bundle.claimTo.value,
+        data: bundle.callData || '0x',
+        value: bundle.value || 0,
         gasLimit,
         maxFeePerGas,
         maxPriorityFeePerGas
       };
+
+      // Log transaction details for sJOE protocol
+      if (bundle.protocol === 'traderjoe' && bundle.callData) {
+        console.log(`TraderJoe sJOE: Executing transaction to ${tx.to} with data ${tx.data.slice(0, 10)}...`);
+      }
 
       const response = await this.wallet.sendTransaction(tx);
       const receipt = await response.wait();

@@ -35,6 +35,7 @@ export const env = {
   // Trader Joe sJOE staking
   traderJoeSJoeStakingAddress: process.env.TRADERJOE_SJOE_STAKING_ADDRESS,
   traderJoeSJoeStakingAbiPath: process.env.TRADERJOE_SJOE_STAKING_ABI_PATH || './abi/traderjoe_sjoe_staking.json',
+  sJoeHarvestFunction: process.env.SJOE_HARVEST_FUNCTION || 'harvest', // 'harvest' or 'getReward'
 
   // Token addresses
   joeToken: process.env.JOE_TOKEN_ADDRESS || '0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd',
