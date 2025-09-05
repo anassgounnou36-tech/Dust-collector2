@@ -1,6 +1,6 @@
 import type { ClaimBundle, ChainClient, TxResult, Address } from '../types/common.js';
 import { logger } from './logger.js';
-import { isPlaceholderAddress } from '../config/addresses.js';
+import { isPlaceholderAddress, looksLikeSeedOrTestAddress, isAllowedRecipientNonMock } from '../config/addresses.js';
 import { verifyPayout, type PricingService } from './verifyPayout.js';
 
 // Global pricing service instance for injection
@@ -15,15 +15,54 @@ export function injectPricingService(service: PricingService): void {
 }
 
 /**
- * Validate bundle recipient is not a placeholder in non-mock mode
+ * Enhanced recipient validation with strict checks for non-mock mode
  */
-function validateRecipient(bundle: ClaimBundle, mockMode: boolean): void {
+async function validateRecipient(bundle: ClaimBundle, client: ChainClient | undefined, mockMode: boolean): Promise<void> {
   if (mockMode) {
     return; // No validation in mock mode
   }
   
+  // Check for placeholder addresses
   if (isPlaceholderAddress(bundle.claimTo)) {
     throw new Error(`Cannot execute bundle with placeholder recipient ${bundle.claimTo.value} in non-mock mode`);
+  }
+  
+  // Check for seed/test address patterns
+  if (looksLikeSeedOrTestAddress(bundle.claimTo)) {
+    throw new Error(`Cannot execute bundle with seed/test recipient ${bundle.claimTo.value} in non-mock mode`);
+  }
+  
+  // Check allowlist for non-mock mode
+  if (!isAllowedRecipientNonMock(bundle.claimTo)) {
+    throw new Error(`Recipient ${bundle.claimTo.value} not allowed in non-mock mode`);
+  }
+}
+
+/**
+ * Validate contract destination has bytecode (not EOA) for non-mock mode
+ */
+async function validateContractDestination(
+  contractAddress: string, 
+  client: ChainClient | undefined, 
+  mockMode: boolean
+): Promise<void> {
+  if (mockMode || !client || !client.getCode) {
+    return; // Skip validation in mock mode, if no client, or if getCode not available
+  }
+  
+  try {
+    // Get contract bytecode
+    const code = await client.getCode(contractAddress);
+    
+    if (!code || code === '0x' || code === '0x0') {
+      throw new Error(`EOA_DESTINATION_BLOCKED: ${contractAddress} has no bytecode`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('EOA_DESTINATION_BLOCKED')) {
+      throw error; // Re-throw our specific error
+    }
+    // For other errors (like network issues), log warning but don't fail
+    logger.warn(`Could not verify contract bytecode for ${contractAddress}:`, error);
   }
 }
 
@@ -33,9 +72,6 @@ export async function execute(
   mockMode: boolean = false
 ): Promise<TxResult> {
   try {
-    // Validate recipient before execution
-    validateRecipient(bundle, mockMode);
-    
     const client = clients.get(bundle.chain);
     
     if (!client) {
@@ -48,6 +84,17 @@ export async function execute(
         chain: bundle.chain,
         verifiedPayout: false
       };
+    }
+    
+    // Validate recipient before execution
+    await validateRecipient(bundle, client, mockMode);
+    
+    // Validate contract destination for sJOE bundles
+    if (bundle.protocol === 'traderjoe' && !mockMode) {
+      const { env } = await import('../config/env.js');
+      if (env.traderJoeSJoeStakingAddress) {
+        await validateContractDestination(env.traderJoeSJoeStakingAddress, client, mockMode);
+      }
     }
 
     logger.info(`Executing bundle ${bundle.id} with ${bundle.items.length} items worth $${bundle.totalUsd.toFixed(2)}`);
@@ -62,6 +109,23 @@ export async function execute(
     
     if (verifiedResult.success) {
       logger.bundleExecuted(bundle.id, true, verifiedResult.txHash);
+      
+      // Enhanced profit summary for sJOE claims
+      if (bundle.protocol === 'traderjoe' && verifiedResult.txHash) {
+        const claimedUsd = verifiedResult.claimedUsd || bundle.totalUsd;
+        const gasUsd = verifiedResult.gasUsd || bundle.estGasUsd;
+        const netUsd = claimedUsd - gasUsd;
+        const verified = verifiedResult.verifiedPayout === true;
+        
+        logger.verifiedPayoutSummary(
+          'sJOE',
+          claimedUsd,
+          gasUsd,
+          netUsd,
+          verifiedResult.txHash,
+          verified
+        );
+      }
     } else {
       logger.bundleExecuted(bundle.id, false, undefined, verifiedResult.error);
     }
@@ -159,22 +223,73 @@ async function performPayoutVerification(
 }
 
 /**
- * Get transaction receipt (placeholder - would be implemented per chain)
+ * Get transaction receipt for different chains
  */
 async function getTransactionReceipt(txHash: string, chain: string): Promise<any> {
-  // This is a placeholder implementation
-  // Real implementation would use chain-specific RPC calls
-  logger.warn(`Transaction receipt retrieval not implemented for chain ${chain}, txHash ${txHash}`);
-  return null;
+  try {
+    if (chain === 'avalanche') {
+      // Use ethers to get transaction receipt
+      const { ethers } = await import('ethers');
+      const { env } = await import('../config/env.js');
+      
+      const provider = new ethers.JsonRpcProvider(env.avalancheRpcUrl);
+      const receipt = await provider.getTransactionReceipt(txHash);
+      
+      if (!receipt) {
+        logger.warn(`Transaction receipt not found for ${txHash} on ${chain}`);
+        return null;
+      }
+      
+      return {
+        status: receipt.status,
+        logs: receipt.logs.map(log => ({
+          address: log.address,
+          topics: log.topics,
+          data: log.data,
+          blockNumber: log.blockNumber,
+          transactionHash: log.transactionHash,
+          logIndex: log.index
+        }))
+      };
+    } else {
+      logger.warn(`Transaction receipt retrieval not implemented for chain ${chain}`);
+      return null;
+    }
+  } catch (error) {
+    logger.error(`Failed to get transaction receipt for ${txHash} on ${chain}:`, error);
+    return null;
+  }
 }
 
 /**
- * Calculate gas cost in USD (placeholder)
+ * Calculate gas cost in USD
  */
 async function calculateGasUsd(gasUsed: string, chain: string, pricing: PricingService): Promise<number> {
-  // This is a placeholder implementation
-  // Real implementation would get gas price and native token price
-  return 0;
+  try {
+    if (chain === 'avalanche') {
+      // Get current AVAX price
+      const { AvalancheClient } = await import('../chains/avalanche.js');
+      const { env } = await import('../config/env.js');
+      
+      // Create a temporary client to get current gas price and native USD price
+      const client = new AvalancheClient(env.avalancheRpcUrl);
+      const gasPrice = await client.gasPrice();
+      const avaxUsd = await client.nativeUsd();
+      
+      // Calculate gas cost
+      const gasCostWei = BigInt(gasUsed) * gasPrice;
+      const gasCostAvax = Number(gasCostWei) / 1e18;
+      const gasCostUsd = gasCostAvax * avaxUsd;
+      
+      return gasCostUsd;
+    } else {
+      logger.warn(`Gas USD calculation not implemented for chain ${chain}`);
+      return 0;
+    }
+  } catch (error) {
+    logger.error(`Failed to calculate gas USD for ${gasUsed} on ${chain}:`, error);
+    return 0;
+  }
 }
 
 export async function executeSequential(

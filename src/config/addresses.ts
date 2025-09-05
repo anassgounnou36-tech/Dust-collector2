@@ -18,6 +18,66 @@ export function isPlaceholderAddress(address: Address): boolean {
 }
 
 /**
+ * Check if an address looks like a seed or test address that should be blocked in production.
+ * This includes patterns like 0x1234..., 0x2345..., 0x3456..., 0x4567..., 0x5678...
+ */
+export function looksLikeSeedOrTestAddress(address: Address): boolean {
+  const value = address.value.toLowerCase();
+  
+  // Check for seed patterns (0x1234..., 0x2345..., etc.)
+  const seedPatterns = [
+    /^0x1234/,
+    /^0x2345/,
+    /^0x3456/,
+    /^0x4567/,
+    /^0x5678/,
+    /^0x0123/,
+    /^0x9876/,
+    /^0xabcd/,
+    /^0xdead/,
+    /^0xbeef/
+  ];
+  
+  for (const pattern of seedPatterns) {
+    if (pattern.test(value)) {
+      return true;
+    }
+  }
+  
+  // Check for test patterns
+  if (value.includes('test') || value.includes('seed') || value.includes('demo')) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Check if a recipient address is allowed in non-mock mode.
+ * This enforces the allowlist and blocks dangerous patterns.
+ */
+export function isAllowedRecipientNonMock(address: Address): boolean {
+  // Block placeholder addresses
+  if (isPlaceholderAddress(address)) {
+    return false;
+  }
+  
+  // Block seed/test addresses
+  if (looksLikeSeedOrTestAddress(address)) {
+    return false;
+  }
+  
+  // Check against the configured default recipient for the chain
+  const defaultRecipient = getDefaultClaimRecipient(address.chain);
+  if (!defaultRecipient) {
+    return false; // No default recipient configured for this chain
+  }
+  
+  // Only allow the configured default recipient
+  return address.value.toLowerCase() === defaultRecipient.value.toLowerCase();
+}
+
+/**
  * Get the default claim recipient for a chain from environment variables.
  * Returns null if not configured.
  */

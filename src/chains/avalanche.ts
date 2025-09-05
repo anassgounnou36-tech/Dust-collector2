@@ -198,6 +198,10 @@ export class AvalancheClient implements ChainClient {
   async getBlockNumber(): Promise<number> {
     return this.provider.getBlockNumber();
   }
+
+  async getCode(address: string): Promise<string> {
+    return this.provider.getCode(address);
+  }
 }
 
 // Exported functions as specified in requirements

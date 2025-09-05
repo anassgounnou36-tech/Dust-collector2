@@ -45,9 +45,9 @@ export interface TxResult {
 export interface Integration {
   readonly key: string;
   readonly chain: Chain;
-  discoverWallets(): Promise<Address[]>;
-  getPendingRewards(wallets: Address[]): Promise<PendingReward[]>;
-  buildBundle(rewards: PendingReward[]): Promise<ClaimBundle[]>;
+  discoverWallets(mockMode?: boolean): Promise<Address[]>;
+  getPendingRewards(wallets: Address[], mockMode?: boolean): Promise<PendingReward[]>;
+  buildBundle(rewards: PendingReward[], mockMode?: boolean): Promise<ClaimBundle[]>;
 }
 
 export interface SimulationResult {
@@ -61,6 +61,7 @@ export interface ChainClient {
   nativeUsd(): Promise<number>;
   simulate(bundle: ClaimBundle): Promise<SimulationResult>;
   sendRaw(bundle: ClaimBundle): Promise<TxResult>;
+  getCode?(address: string): Promise<string>; // Optional method for contract validation
 }
 
 export interface Config {
