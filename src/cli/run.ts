@@ -16,13 +16,16 @@ import { yieldYakIntegration } from '../integrations/yieldyak.js';
 import { seedWallets } from '../discovery/seeds.js';
 import { groupByContract, splitLargeBundles, mergeBundles } from '../engine/bundler.js';
 import { dryRun } from '../engine/simulator.js';
-import { execute } from '../engine/executor.js';
+import { execute, injectPricingService } from '../engine/executor.js';
 import { recordExecutionResult } from '../engine/ledger.js';
 import { shouldSkipIdempotency } from '../engine/idempotency.js';
 import { isWalletQuarantined, withExponentialBackoff } from '../engine/retry.js';
 import { Scheduler } from '../engine/scheduler.js';
 import { logger } from '../engine/logger.js';
 import { Policy } from '../economics/policy.js';
+import { validateClaimRecipients } from '../config/addresses.js';
+import { normalizeClaimTargets, filterSyntheticRewards } from '../integrations/_normalizer.js';
+import { quoteToUsd, getTokenDecimals } from '../economics/pricing.js';
 import { printStartupDiagnostics } from '../engine/startupDiagnostics.js';
 
 // Environment variables
@@ -216,8 +219,17 @@ async function runDiscoveryAndClaims(
     logger.info(`Filtered ${allPendingRewards.length} rewards to ${filteredRewards.length} after policy checks`);
     if (filteredRewards.length === 0) return;
 
+    // Normalize claim targets and filter synthetic rewards
+    let normalizedRewards = filterSyntheticRewards(filteredRewards, configObj.mockMode);
+    normalizedRewards = normalizeClaimTargets(normalizedRewards, configObj.mockMode);
+    
+    if (normalizedRewards.length !== filteredRewards.length) {
+      logger.info(`Normalized ${filteredRewards.length} rewards to ${normalizedRewards.length} after safety filters`);
+    }
+    if (normalizedRewards.length === 0) return;
+
     // Bundling
-    let bundles = groupByContract(filteredRewards);
+    let bundles = groupByContract(normalizedRewards);
     logger.info(`Created ${bundles.length} initial bundles`);
 
     bundles = splitLargeBundles(bundles, Policy.MAX_BUNDLE_SIZE);
@@ -254,7 +266,7 @@ async function runDiscoveryAndClaims(
         }
 
         const result = await withExponentialBackoff(
-          () => execute(bundle, clients),
+          () => execute(bundle, clients, configObj.mockMode),
             Policy.RETRY_MAX_ATTEMPTS,
             Policy.RETRY_BASE_DELAY_MS,
             `bundle-${bundle.id}`
@@ -287,6 +299,31 @@ async function main(): Promise<void> {
   logger.info('Configuration loaded', {
     mockMode: configObj.mockMode,
     dbPath: configObj.database.path
+  });
+
+  // Validate recipient configuration for non-mock mode
+  try {
+    validateClaimRecipients(configObj.mockMode);
+    if (!configObj.mockMode) {
+      logger.info('✅ Claim recipient validation passed for production mode');
+    }
+  } catch (error) {
+    logger.fatal('❌ Claim recipient validation failed:', error);
+    process.exit(1);
+  }
+
+  // Inject pricing service for payout verification
+  injectPricingService({
+    quoteToUsd: async (chain, token, amountWei) => {
+      if (chain === 'avalanche') {
+        return await quoteToUsd(chain, token, amountWei);
+      } else {
+        // For other chains, placeholder implementation
+        console.warn(`Pricing not implemented for chain ${chain}, returning 0`);
+        return 0;
+      }
+    },
+    getTokenDecimals
   });
 
   const db = initDb(configObj.database.path);
