@@ -479,6 +479,9 @@ export function createTraderJoeRouter(rpcUrl?: string): TraderJoeRouter {
   );
 }
 
+// Re-export evaluator factory for convenience
+export { createTraderJoeEvaluator } from '../../engine/traderJoeEvaluator.js';
+
 /**
  * Common token definitions for Avalanche
  */

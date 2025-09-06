@@ -55,15 +55,22 @@ describe('Debug Instrumentation Tests', () => {
       // Verify evaluation result
       expect(snapshot.finalEvaluation.profitable).toBe(false);
       expect(snapshot.finalEvaluation.warnings.length).toBeGreaterThan(0);
-      expect(snapshot.finalEvaluation.warnings.some(w => w.includes('Profit below minimum'))).toBe(true);
+      expect(snapshot.finalEvaluation.warnings.some((w: string) => w.includes('Profit below minimum'))).toBe(true);
     });
 
     it('should analyze failed evaluations correctly', () => {
       // Create mock snapshots
       const mockSnapshots: EvaluationSnapshot[] = [
         {
+          id: 'test1',
+          startedAt: Date.now() - 5000,
+          completedAt: Date.now(),
+          status: 'failed',
           timestamp: new Date().toISOString(),
           sessionId: 'test1',
+          decisions: [],
+          warnings: ['Profit below minimum: $0.00 < $100.00'],
+          errors: ['No route found'],
           tradeInput: {
             tokenIn: AVALANCHE_TOKENS.WAVAX,
             tokenOut: AVALANCHE_TOKENS.USDC,
@@ -98,8 +105,6 @@ describe('Debug Instrumentation Tests', () => {
             executionScore: 0
           },
           decisionPoints: [],
-          warnings: ['Profit below minimum: $0.00 < $100.00'],
-          errors: ['No route found'],
           finalEvaluation: {
             quote: null,
             profitable: false,
@@ -154,11 +159,11 @@ describe('Debug Instrumentation Tests', () => {
 
       expect(validation.isValid).toBe(true);
       expect(validation.version).toBe('v2.1');
-      expect(validation.contractValidation.routerValid).toBe(true);
-      expect(validation.contractValidation.factoryValid).toBe(true);
-      expect(validation.tokenValidation.inputValid).toBe(true);
-      expect(validation.tokenValidation.outputValid).toBe(true);
-      expect(validation.economicValidation.profitabilityValid).toBe(true);
+      expect(validation.contractValidation?.routerValid).toBe(true);
+      expect(validation.contractValidation?.factoryValid).toBe(true);
+      expect(validation.tokenValidation?.inputValid).toBe(true);
+      expect(validation.tokenValidation?.outputValid).toBe(true);
+      expect(validation.economicValidation?.profitabilityValid).toBe(true);
     });
 
     it('should detect validation issues', async () => {

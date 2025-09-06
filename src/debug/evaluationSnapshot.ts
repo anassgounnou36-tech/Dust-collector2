@@ -54,6 +54,7 @@ export interface EvaluationSnapshot extends EvaluationSession {
   calculatedMetrics?: any;
   decisionPoints?: DecisionPoint[];
   finalEvaluation?: any;
+  routerState?: RouterState;
 }
 
 const isDebugEnabled = () =>
@@ -90,8 +91,8 @@ export class EvaluationDebugger {
     this.sessions.clear();
   }
 
-  getAllSnapshots(): EvaluationSession[] {
-    return this.getAllSessions();
+  getAllSnapshots(): EvaluationSnapshot[] {
+    return this.getAllSessions() as EvaluationSnapshot[];
   }
 
   private ensureSession(id: string): EvaluationSession | undefined {
@@ -255,7 +256,7 @@ export class EvaluationDebugger {
   /* completeSession flexible forms:
      completeSession(sessionId, status)
      completeSession(sessionId, status, summaryObj)
-     completeSession(sessionId, routerState, quoteResult, decisions, metrics, status, profitFlag, warnings, errors)
+     completeSession(sessionId, finalEvaluation, tradeInput, routerState, quoteResult, criteria, metrics, decisions, warnings, errors)
   */
   completeSession(sessionId: string, ...args: any[]): void {
     if (!this.isEnabled()) return;
@@ -269,8 +270,57 @@ export class EvaluationDebugger {
     } else if (args.length === 2 && typeof args[0] === 'string' && typeof args[1] === 'object') {
       s.status = args[0];
       s.meta = { ...(s.meta || {}), ...(args[1] || {}) };
+    } else if (args.length >= 8) {
+      // Handle the traderJoeEvaluator pattern:
+      // (sessionId, finalEvaluation, tradeInput, routerState, quoteResult, criteria, metrics, decisions, warnings, errors)
+      const [
+        finalEvaluation,
+        tradeInput,
+        routerState,
+        quoteResult,
+        criteria,
+        metrics,
+        decisions,
+        warnings,
+        errors
+      ] = args;
+
+      // Store additional snapshot data for tests
+      const snapshot = s as any; // Cast to allow additional properties
+      snapshot.finalEvaluation = finalEvaluation;
+      snapshot.tradeInput = tradeInput;
+      snapshot.evaluationCriteria = criteria;
+      snapshot.calculatedMetrics = metrics;
+      snapshot.decisionPoints = decisions;
+      snapshot.sessionId = sessionId; // For test compatibility
+      snapshot.timestamp = new Date().toISOString();
+
+      if (routerState && typeof routerState === 'object') {
+        s.routerState = { ...(s.routerState || {}), ...routerState };
+      }
+      if (quoteResult && typeof quoteResult === 'object') {
+        s.quoteResult = { ...(s.quoteResult || {}), ...quoteResult };
+      }
+      if (Array.isArray(decisions)) {
+        decisions.forEach((d: any) => {
+          if (d && typeof d === 'object' && 'id' in d) {
+            s.decisions.push(d as DecisionPoint);
+          }
+        });
+      }
+      if (metrics && typeof metrics === 'object') {
+        s.metrics = { ...(s.metrics || {}), ...metrics };
+      }
+      if (Array.isArray(warnings)) {
+        warnings.forEach((w: any) => typeof w === 'string' && s.warnings.push(w));
+      }
+      if (Array.isArray(errors)) {
+        errors.forEach((e: any) => typeof e === 'string' && s.errors.push(e));
+      }
+      
+      s.status = finalEvaluation?.profitable ? 'completed' : 'failed';
     } else if (args.length >= 5) {
-      // Attempt to map the 10-arg pattern:
+      // Legacy pattern: (sessionId, routerState, quoteResult, decisions, metrics, status, profitFlag, warnings, errors)
       const [
         routerState,
         quoteResult,
@@ -290,7 +340,6 @@ export class EvaluationDebugger {
         s.quoteResult = { ...(s.quoteResult || {}), ...quoteResult };
       }
       if (Array.isArray(decisions)) {
-        // Append decisions (assumed already structured or raw)
         decisions.forEach((d: any) => {
           if (d && typeof d === 'object' && 'id' in d) {
             s.decisions.push(d as DecisionPoint);
@@ -305,10 +354,10 @@ export class EvaluationDebugger {
         s.meta = { ...(s.meta || {}), profitFlag };
       }
       if (Array.isArray(warnings)) {
-            warnings.forEach(w => typeof w === 'string' && s.warnings.push(w));
+        warnings.forEach((w: any) => typeof w === 'string' && s.warnings.push(w));
       }
       if (Array.isArray(errors)) {
-            errors.forEach(e => typeof e === 'string' && s.errors.push(e));
+        errors.forEach((e: any) => typeof e === 'string' && s.errors.push(e));
       }
       if (extraMeta && typeof extraMeta === 'object') {
         s.meta = { ...(s.meta || {}), ...extraMeta };

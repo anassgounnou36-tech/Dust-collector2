@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { sJoeIntegration } from '../../../src/integrations/traderjoe/sjoe.js';
-import type { Address } from '../../../src/types/common.js';
+import type { Address, Chain } from '../../../src/types/common.js';
 
 // Mock environment variables
 vi.mock('../../../src/config/env.js', () => ({
@@ -68,7 +68,7 @@ describe('sJOE Integration Tests', () => {
         id: 'test-reward',
         wallet: invalidAddress,
         protocol: 'traderjoe',
-        token: { value: '0x1a731B2299E22FbAC282E7094EdA41046343Cb51', chain: 'avalanche' },
+        token: { value: '0x1a731B2299E22FbAC282E7094EdA41046343Cb51', chain: 'avalanche' as Chain },
         amountWei: '1000000000000000000',
         amountUsd: 2.5,
         claimTo: invalidAddress,
@@ -148,12 +148,12 @@ describe('sJOE Integration Tests', () => {
     it('should create valid bundles from rewards', async () => {
       const testReward = {
         id: 'test-reward',
-        wallet: { value: '0xe816F3dB12Db343FAF01B0781F9fE80122FA7E7D', chain: 'avalanche' },
+        wallet: { value: '0xe816F3dB12Db343FAF01B0781F9fE80122FA7E7D', chain: 'avalanche' as Chain },
         protocol: 'traderjoe',
-        token: { value: '0x1a731B2299E22FbAC282E7094EdA41046343Cb51', chain: 'avalanche' },
+        token: { value: '0x1a731B2299E22FbAC282E7094EdA41046343Cb51', chain: 'avalanche' as Chain },
         amountWei: '2000000000000000000',
         amountUsd: 5.0,
-        claimTo: { value: '0xe816F3dB12Db343FAF01B0781F9fE80122FA7E7D', chain: 'avalanche' },
+        claimTo: { value: '0xe816F3dB12Db343FAF01B0781F9fE80122FA7E7D', chain: 'avalanche' as Chain },
         discoveredAt: new Date(),
         lastClaimAt: undefined
       };
@@ -170,12 +170,12 @@ describe('sJOE Integration Tests', () => {
     it('should validate recipients in non-mock mode', async () => {
       const invalidReward = {
         id: 'test-reward',
-        wallet: { value: '0x1234567890123456789012345678901234567890', chain: 'avalanche' },
+        wallet: { value: '0x1234567890123456789012345678901234567890', chain: 'avalanche' as Chain },
         protocol: 'traderjoe',
-        token: { value: '0x1a731B2299E22FbAC282E7094EdA41046343Cb51', chain: 'avalanche' },
+        token: { value: '0x1a731B2299E22FbAC282E7094EdA41046343Cb51', chain: 'avalanche' as Chain },
         amountWei: '2000000000000000000',
         amountUsd: 5.0,
-        claimTo: { value: '0x1234567890123456789012345678901234567890', chain: 'avalanche' },
+        claimTo: { value: '0x1234567890123456789012345678901234567890', chain: 'avalanche' as Chain },
         discoveredAt: new Date(),
         lastClaimAt: undefined
       };

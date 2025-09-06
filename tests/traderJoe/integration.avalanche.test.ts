@@ -207,9 +207,9 @@ testCondition('Trader Joe Avalanche Integration Tests', () => {
 
         console.log(`Arbitrage Analysis: ${evaluation.allEvaluations.size} pairs evaluated`);
 
-        for (const [symbol, evaluation] of evaluation.allEvaluations) {
-          const status = evaluation.profitable ? '✅' : '❌';
-          console.log(`  ${status} WAVAX → ${symbol}: $${evaluation.profitUsd.toFixed(2)} profit, Score: ${evaluation.executionScore.toFixed(1)}`);
+        for (const [symbol, evalResult] of evaluation.allEvaluations) {
+          const status = evalResult.profitable ? '✅' : '❌';
+          console.log(`  ${status} WAVAX → ${symbol}: $${evalResult.profitUsd.toFixed(2)} profit, Score: ${evalResult.executionScore.toFixed(1)}`);
         }
 
         if (evaluation.bestTarget) {
@@ -234,7 +234,7 @@ testCondition('Trader Joe Avalanche Integration Tests', () => {
 
         console.log(`Optimal Trade Size Analysis: ${result.allEvaluations.length} sizes tested`);
 
-        result.allEvaluations.forEach((evaluation, index) => {
+        result.allEvaluations.forEach((evaluation: any, index: number) => {
           if (evaluation.quote) {
             const inputAvax = Number(evaluation.quote.inputAmount) / 1e18;
             const status = evaluation.profitable ? '✅' : '❌';
@@ -279,9 +279,9 @@ testCondition('Trader Joe Avalanche Integration Tests', () => {
         if (analysis.profitable.length > 0) {
           console.log('\n🏆 Top Profitable Pairs:');
           analysis.profitable
-            .sort((a, b) => b.executionScore - a.executionScore)
+            .sort((a: any, b: any) => b.executionScore - a.executionScore)
             .slice(0, 3)
-            .forEach((evaluation, index) => {
+            .forEach((evaluation: any, index: number) => {
               if (evaluation.quote) {
                 const pairName = `${evaluation.quote.route.input.symbol}/${evaluation.quote.route.output.symbol}`;
                 console.log(`  ${index + 1}. ${pairName}: Score ${evaluation.executionScore.toFixed(1)}, Profit $${evaluation.profitUsd.toFixed(2)}`);
