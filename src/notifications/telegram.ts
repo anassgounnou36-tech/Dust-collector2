@@ -49,7 +49,7 @@ function getTelegramConfig(): TelegramConfig {
  * MarkdownV2 requires escaping these characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
  */
 function escapeMarkdownV2(text: string): string {
-  return text.replace(/[_*\[\]()~`>#+=|{}.!-]/g, '\\$&');
+  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
 }
 
 /**

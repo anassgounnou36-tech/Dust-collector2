@@ -145,6 +145,7 @@ export const traderJoeIntegration: Integration = {
   chain: 'avalanche',
 
   async discoverWallets(mockMode: boolean = false): Promise<Address[]> {
+    console.log(`[DEBUG] TraderJoe integration initialized - discoverWallets called with mockMode: ${mockMode}`);
     return await discoverTraderJoeWallets();
   },
 
