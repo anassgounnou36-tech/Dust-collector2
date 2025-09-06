@@ -46,6 +46,10 @@ export const env = {
   // sJOE specific configuration
   sJoeMinUsd: parseFloat(process.env.SJOE_MIN_USD || '1.0'),
 
+  // GMX specific configuration
+  gmxMinUsd: parseFloat(process.env.GMX_MIN_USD || '5.0'),
+  gmxRewardRouterV2AbiPath: process.env.GMX_REWARD_ROUTER_V2_ABI_PATH || './abi/gmx_reward_router_v2.json',
+
   // Pricing API configuration
   coinGeckoApiKey: process.env.COINGECKO_API_KEY,
   defiLlamaApiUrl: process.env.DEFILLAMA_API_URL || 'https://api.llama.fi',
