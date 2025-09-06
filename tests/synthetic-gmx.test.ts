@@ -142,7 +142,7 @@ describe('GMX Synthetic Mode Tests', () => {
       expect(rewards).toHaveLength(0);
     });
 
-    it('should return empty bundles when synthetic mode is disabled', async () => {
+    it('should reject bundles with invalid recipients when synthetic mode is disabled', async () => {
       const mockRewards = [
         {
           id: 'test-reward-1',
@@ -157,8 +157,8 @@ describe('GMX Synthetic Mode Tests', () => {
         }
       ];
 
-      const bundles = await gmxIntegration.buildBundle(mockRewards);
-      expect(bundles).toHaveLength(0);
+      // Should throw error because the recipient is not allowed in non-mock mode
+      await expect(gmxIntegration.buildBundle(mockRewards)).rejects.toThrow('Invalid recipient');
     });
   });
 
