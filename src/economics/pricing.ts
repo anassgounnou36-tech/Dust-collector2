@@ -39,6 +39,7 @@ const TOKEN_DECIMALS_MAP: Record<string, number> = {
   'WETH': 18,
   'WBTC': 8,
   'JOE': 18,
+  'sJOE': 18,
   'QI': 18,
   'GMX': 18
 };
@@ -100,6 +101,8 @@ function getTokenSymbolFromAddress(address: string): string {
     '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7': 'USDT',
     '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70': 'DAI',
     '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7': 'WAVAX',
+    '0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd': 'JOE',     // JOE token
+    '0x1a731B2299E22FbAC282E7094EdA41046343Cb51': 'sJOE',    // sJOE token
     
     // Tron (TRC-20)
     'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t': 'USDT', // USDT-TRC20
